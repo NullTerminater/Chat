@@ -16,7 +16,6 @@ func main() {
 		conn, err := ln.Accept()
 		go handleConnection(conn)
 	for{
-		// conn, err := ln.Accept()
 		sendMessage(conn)
 		if err != nil {
 			fmt.Println("erorr accepting: ", err)
