@@ -10,8 +10,9 @@ import (
 
 func main() {
 	conn, err := net.Dial("tcp", ":8080")
+	go sendMessage(conn)
 	for {
-		sendMessage(conn)
+		handleConnection(conn)
 	}
 	err = conn.Close()
 	if err != nil {
@@ -30,3 +31,17 @@ func sendMessage(conn net.Conn) {
 		}
 	}
 }
+
+func handleConnection(conn net.Conn) {
+	reader := bufio.NewReader(conn)
+	for {
+		message, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("eror reading:", err)
+			err = conn.Close()
+			break
+		}
+		fmt.Print(message)
+	}
+}
+

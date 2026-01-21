@@ -13,12 +13,15 @@ func main() {
 		fmt.Println("error listening", err)
 		os.Exit(1)
 	}
-	for{
 		conn, err := ln.Accept()
+		go handleConnection(conn)
+	for{
+		// conn, err := ln.Accept()
+		sendMessage(conn)
 		if err != nil {
 			fmt.Println("erorr accepting: ", err)
 		}
-		go handleConnection(conn)
+
 	}
 }
 
@@ -32,5 +35,17 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 		fmt.Print(message)
+	}
+}
+
+func sendMessage(conn net.Conn) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		message, err := reader.ReadString('\n')
+		_, err = conn.Write([]byte(message))
+		if err != nil {
+			fmt.Println("Error sending the message", err)
+			break
+		}
 	}
 }
