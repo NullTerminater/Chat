@@ -5,24 +5,22 @@ import (
 	"net"
 	"os"
 	"bufio"
-	"time"
 )
 
 
 func main() {
-	conn, err := net.Dial("tcp", ":8080")
+	serverIP := findServer()
+	fmt.Println("connecting to: ", serverIP, "...")
+
+	conn, err := net.Dial("tcp",serverIP+ ":8080")
 	if err != nil {
 		fmt.Println("Error connecting:", err)
 		os.Exit(1)
 	}
-	go sendMessage(conn)
-	for {
-		handleConnection(conn)
-	}
-	err = conn.Close()
-	if err != nil {
-		fmt.Println("Error closing", err)
-	}
+	sendMessage(conn)
+	go handleConnection(conn)
+
+	conn.Close()
 }
 
 func sendMessage(conn net.Conn) {
@@ -38,20 +36,36 @@ func sendMessage(conn net.Conn) {
 }
 
 func handleConnection(conn net.Conn) {
-	count := 0
 	reader := bufio.NewReader(conn)
+
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("eror reading:", err)
-			count++
-			time.Sleep(time.Second * 3)
-			if count == 3 {
-				err = conn.Close()
-				os.Exit(1)
-			}
+			os.Exit(1)
 		}
 		fmt.Print(message)
 	}
 }
+
+func findServer() string {
+	fmt.Println("Looking for server...")
+	addr, _ := net.ResolveUDPAddr("udp", ":9999")
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		fmt.Println("Error listening for beacon:", err)
+		os.Exit(1)
+	}
+	defer conn.Close()
+
+	buf := make([]byte, 1024)
+	_, remoteAddr, err := conn.ReadFromUDP(buf)
+	if err != nil {
+		fmt.Println("Error reading from UDP: ", err)
+	}
+
+	fmt.Println("Found server at:", remoteAddr.IP.String())
+    return remoteAddr.IP.String()
+}
+
 

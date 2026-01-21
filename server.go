@@ -4,7 +4,7 @@ import (
 	"net"
 	"os"
 	"bufio"
-	// "time"
+	"time"
 )
 
 func main() {
@@ -15,12 +15,12 @@ func main() {
 	}
 		conn, err := ln.Accept()
 		go handleConnection(conn)
-	for{
+		go broadcast()
+	for {
 		sendMessage(conn)
 		if err != nil {
 			fmt.Println("erorr accepting: ", err)
 		}
-
 	}
 }
 
@@ -48,3 +48,22 @@ func sendMessage(conn net.Conn) {
 		}
 	}
 }
+
+
+func broadcast() {
+	pc, err := net.Dial("udp", "255.255.255.255:9999")
+	if err != nil {
+		fmt.Println("Error broadcasting", err)
+		return
+	}
+	defer pc.Close()
+	for {
+		_, err = pc.Write([]byte("Here"))
+		if err != nil {
+			fmt.Println("Broadcast error:", err)
+
+		}
+		time.Sleep(time.Second * 1)
+	}
+}
+
