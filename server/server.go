@@ -1,11 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
 	"time"
+
+	"terminalcomm/ui"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
@@ -22,52 +25,50 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Println("--- UDP Chat Server ---")
-	fmt.Println("Listening on UDP :8080")
-
 	go broadcast()
 
 	var clientAddr *net.UDPAddr
+
+	sendCallback := func(msg string) error {
+		if clientAddr == nil {
+			return fmt.Errorf("no client connected yet")
+		}
+		_, err := conn.WriteToUDP([]byte(msg), clientAddr)
+		return err
+	}
+
+	model := ui.InitialModel("UDP Chat Server", sendCallback)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+
 	go func() {
-		reader := bufio.NewReader(os.Stdin)
+		buf := make([]byte, 2048)
 		for {
-			text, _ := reader.ReadString('\n')
-			if clientAddr != nil {
-				_, err := conn.WriteToUDP([]byte(text), clientAddr)
-				if err != nil {
-					fmt.Println("Error sending to client:", err)
-				}
-			} else {
-				fmt.Println("No client discovered yet. Waiting for a message from client...")
+			n, remoteAddr, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				return
 			}
-			fmt.Print("> ")
+
+			clientAddr = remoteAddr
+
+			text := string(buf[:n])
+			p.Send(ui.UdpMsg(fmt.Sprintf("[Client %s]: %s", remoteAddr.IP.String(), text)))
 		}
 	}()
 
-	buf := make([]byte, 2048)
-	for {
-		n, remoteAddr, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			fmt.Println("Error reading from UDP:", err)
-			continue
-		}
-
-		clientAddr = remoteAddr
-
-		fmt.Printf("\r[Client %s]: %s> ", remoteAddr.String(), string(buf[:n]))
+	if _, err := p.Run(); err != nil {
+		fmt.Println("Error running program:", err)
+		os.Exit(1)
 	}
 }
 
 func broadcast() {
 	addr, err := net.ResolveUDPAddr("udp", "255.255.255.255:9999")
 	if err != nil {
-		fmt.Println("Broadcast resolve error:", err)
 		return
 	}
 
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
-		fmt.Println("Broadcast dial error:", err)
 		return
 	}
 	defer conn.Close()
